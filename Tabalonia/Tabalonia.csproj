@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFrameworks>net6.0;net7.0;net8</TargetFrameworks>
@@ -7,7 +7,7 @@
         <LangVersion>preview</LangVersion>
         <IsAotCompatible>true</IsAotCompatible>
 
-        <Version>0.10.7</Version>
+	    <Version>11.2.3.1</Version>
 
         <Copyright>Copyright 2022-$([System.DateTime]::Now.ToString(`yyyy`)) &#169; The Tabalonia Project</Copyright>
         <PackageProjectUrl>https://github.com/egorozh/Tabalonia</PackageProjectUrl>
@@ -22,7 +22,7 @@
 
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.0.0" />
+	    <PackageReference Include="Avalonia" Version="11.2.3" />
     </ItemGroup>
 
     <ItemGroup Label="PackageIcon">

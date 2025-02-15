@@ -7,17 +7,17 @@
         <LangVersion>preview</LangVersion>
         <IsAotCompatible>true</IsAotCompatible>
 
-	    <Version>11.2.3.1</Version>
+        <Version>11.2.3.1</Version>
 
-        <Copyright>Copyright 2022-$([System.DateTime]::Now.ToString(`yyyy`)) &#169; The Tabalonia Project</Copyright>
-        <PackageProjectUrl>https://github.com/egorozh/Tabalonia</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/egorozh/Tabalonia</RepositoryUrl>
-        <PackageTags>Tab Control, Draggable, Avalonia, AvaloniaUI</PackageTags>
-        <Description>Tab Control with draggable tabs for Avalonia</Description>
+        <Copyright>Copyright 2022-$([System.DateTime]::Now.ToString(`yyyy`)) © The Tabalonia Project</Copyright>
+        <PackageProjectUrl>https://github.com/CalyPdf/Caly.Tabalonia</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/CalyPdf/Caly.Tabalonia</RepositoryUrl>
+        <PackageTags>Tab Control, Draggable, Avalonia, AvaloniaUI, Caly</PackageTags>
+        <Description>For use in Caly Pdf: Tab Control with draggable tabs for Avalonia</Description>
         <PackageIcon>Icon.png</PackageIcon>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageReleaseNotes>Supported a light mode for the custom theme</PackageReleaseNotes>
-        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageId>Caly.Tabalonia</PackageId>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
 

@@ -7,7 +7,7 @@
         <LangVersion>preview</LangVersion>
         <IsAotCompatible>true</IsAotCompatible>
 
-        <Version>11.2.3.1</Version>
+        <Version>11.2.4.1</Version>
 
         <Copyright>Copyright 2022-$([System.DateTime]::Now.ToString(`yyyy`)) © The Tabalonia Project</Copyright>
         <PackageProjectUrl>https://github.com/CalyPdf/Caly.Tabalonia</PackageProjectUrl>

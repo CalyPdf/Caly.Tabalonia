@@ -33,15 +33,6 @@ public class TabsControl : TabControl
 
     #endregion
 
-    #region Events
-
-    public event EventHandler<DragTabDragStartedEventArgs>? OnTabDragStarted;
-
-    public event EventHandler<DragTabDragCompletedEventArgs>? OnTabDragCompleted;
-
-    #endregion
-
-
     #region Avalonia Properties
 
     public static readonly StyledProperty<double> AdjacentHeaderItemOffsetProperty =
@@ -70,6 +61,13 @@ public class TabsControl : TabControl
 
     public static readonly StyledProperty<Func<object>?> NewItemFactoryProperty =
         AvaloniaProperty.Register<TabsControl, Func<object>?>(nameof(NewItemFactory));
+
+
+    public static readonly StyledProperty<EventHandler<DragTabDragStartedEventArgs>?> TabDragStartedProperty =
+        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragStartedEventArgs>?>(nameof(TabClosed));
+
+    public static readonly StyledProperty<EventHandler<DragTabDragCompletedEventArgs>?> TabDragCompletedProperty =
+        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragCompletedEventArgs>?>(nameof(TabClosing));
 
 
     public static readonly StyledProperty<EventHandler<TabClosedEventArgs>?> TabClosedProperty =
@@ -187,6 +185,17 @@ public class TabsControl : TabControl
         set => SetValue(NewItemFactoryProperty, value);
     }
 
+    public EventHandler<DragTabDragStartedEventArgs>? TabDragStarted
+    {
+        get => GetValue(TabDragStartedProperty);
+        set => SetValue(TabDragStartedProperty, value);
+    }
+
+    public EventHandler<DragTabDragCompletedEventArgs>? TabDragCompleted
+    {
+        get => GetValue(TabDragCompletedProperty);
+        set => SetValue(TabDragCompletedProperty, value);
+    }
 
     public EventHandler<TabClosedEventArgs>? TabClosed
     {
@@ -207,8 +216,7 @@ public class TabsControl : TabControl
         get => GetValue(LastTabClosedActionProperty);
         set => SetValue(LastTabClosedActionProperty, value);
     }
-
-
+    
     /// <summary>
     /// Allows a the first adjacent tabs to be fixed (no dragging, and default close button will not show).
     /// </summary>
@@ -355,7 +363,7 @@ public class TabsControl : TabControl
 
     private void ItemDragStarted(object? sender, DragTabDragStartedEventArgs e)
     {
-        OnTabDragStarted?.Invoke(sender, e);
+        TabDragStarted?.Invoke(sender, e);
 
         _draggedItem = e.TabItem;
 
@@ -412,7 +420,7 @@ public class TabsControl : TabControl
         Dispatcher.UIThread.Post(() => _tabsPanel.InvalidateMeasure(), DispatcherPriority.Loaded);
 
         _dragging = false;
-        OnTabDragCompleted?.Invoke(sender, e);
+        TabDragCompleted?.Invoke(sender, e);
     }
 
 

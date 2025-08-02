@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Specialized;
 using System.Windows.Input;
 using Tabalonia.Events;
 using Tabalonia.Panels;
@@ -64,10 +65,10 @@ public class TabsControl : TabControl
 
 
     public static readonly StyledProperty<EventHandler<DragTabDragStartedEventArgs>?> TabDragStartedProperty =
-        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragStartedEventArgs>?>(nameof(TabClosed));
+        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragStartedEventArgs>?>(nameof(TabDragStarted));
 
     public static readonly StyledProperty<EventHandler<DragTabDragCompletedEventArgs>?> TabDragCompletedProperty =
-        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragCompletedEventArgs>?>(nameof(TabClosing));
+        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragCompletedEventArgs>?>(nameof(TabDragCompleted));
 
 
     public static readonly StyledProperty<EventHandler<TabClosedEventArgs>?> TabClosedProperty =
@@ -119,6 +120,8 @@ public class TabsControl : TabControl
 
     public TabsControl()
     {
+        // TODO - Unsubscribe from events
+        
         AddHandler(DragTabItem.DragStarted, ItemDragStarted, handledEventsToo: true);
         AddHandler(DragTabItem.DragDelta, ItemDragDelta);
         AddHandler(DragTabItem.DragCompleted, ItemDragCompleted, handledEventsToo: true);
@@ -137,13 +140,35 @@ public class TabsControl : TabControl
 
         _addItemCommand = new SimpleActionCommand(AddItem);
         _closeItemCommand = new SimpleParamActionCommand(CloseItem);
+
+        Items.CollectionChanged += Items_CollectionChanged;
+    }
+
+    private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        /*
+         * If the _draggedItem is not null and is the item that was removed, we remove the reference
+         */
+        if (_draggedItem is null || e.Action != NotifyCollectionChangedAction.Remove || !(e.OldItems?.Count > 0))
+        {
+            return;
+        }
+
+        foreach (var oldItem in e.OldItems)
+        {
+            if (_draggedItem?.DataContext == oldItem)
+            {
+                _draggedItem = null;
+                break;
+            }
+        }
     }
 
     #endregion
 
 
     #region Public Properties
-    
+
     public double AdjacentHeaderItemOffset
     {
         get => GetValue(AdjacentHeaderItemOffsetProperty);
@@ -335,6 +360,11 @@ public class TabsControl : TabControl
 
         TabClosed?.Invoke(this, new TabClosedEventArgs(item));
 
+        if (_draggedItem == container)
+        {
+            _draggedItem = null;
+        }
+
         if (itemsList.Count == 0)
             LastTabClosedAction?.Invoke(this, new CloseLastTabEventArgs(GetThisWindow()));
         else if (removedItemIsSelected)
@@ -440,7 +470,6 @@ public class TabsControl : TabControl
     private void TabsPanelOnDragCompleted()
     {
         MoveTabModelsIfNeeded();
-
         _draggedItem = null;
     }
 

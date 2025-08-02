@@ -93,15 +93,23 @@ public class DragTabItem : TabItem
     {
         base.OnApplyTemplate(e);
 
-        var templateThumb = e.Find<LeftPressedThumb>("PART_Thumb");
-
-        _thumb = templateThumb;
+        _thumb = e.Find<LeftPressedThumb>("PART_Thumb");
         _thumb.DragStarted += ThumbOnDragStarted;
         _thumb.DragDelta += ThumbOnDragDelta;
         _thumb.DragCompleted += ThumbOnDragCompleted;
     }
 
-    
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        if (_thumb is not null)
+        {
+            _thumb.DragStarted -= ThumbOnDragStarted;
+            _thumb.DragDelta -= ThumbOnDragDelta;
+            _thumb.DragCompleted -= ThumbOnDragCompleted;
+        }
+    }
+
     protected override void OnPointerEntered(PointerEventArgs e)
     {
         base.OnPointerEntered(e);

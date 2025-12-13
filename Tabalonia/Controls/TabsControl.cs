@@ -149,17 +149,33 @@ public class TabsControl : TabControl
         /*
          * If the _draggedItem is not null and is the item that was removed, we remove the reference
          */
-        if (_draggedItem is null || e.Action != NotifyCollectionChangedAction.Remove || !(e.OldItems?.Count > 0))
+
+        if (_draggedItem is null)
         {
             return;
         }
 
-        foreach (var oldItem in e.OldItems)
+        if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems?.Count > 0)
         {
-            if (_draggedItem?.DataContext == oldItem)
+            foreach (var oldItem in e.OldItems)
             {
-                _draggedItem = null;
-                break;
+                if (_draggedItem?.DataContext == oldItem)
+                {
+                    _draggedItem = null;
+                    break;
+                }
+            }
+        }
+
+        if (e.Action == NotifyCollectionChangedAction.Replace && e.NewItems?.Count > 0)
+        {
+            foreach (var oldItem in e.NewItems)
+            {
+                if (_draggedItem?.DataContext == oldItem)
+                {
+                    _draggedItem = null;
+                    break;
+                }
             }
         }
     }
@@ -473,29 +489,119 @@ public class TabsControl : TabControl
         _draggedItem = null;
     }
 
+    protected override void ContainerIndexChangedOverride(Control container, int oldIndex, int newIndex)
+    {
+        if (_isContainerSwapping)
+        {
+            return;
+        }
+
+        base.ContainerIndexChangedOverride(container, oldIndex, newIndex);
+    }
+
+
+    private bool _isContainerSwapping = false;
 
     private void MoveTabModelsIfNeeded()
     {
+        if (_draggedItem is null)
+        {
+            return;
+        }
+
         object? item = ItemFromContainer(_draggedItem);
 
-        if (item != null)
+        if (item == null)
         {
-            DragTabItem container = _draggedItem;
+            return;
+        }
 
-            if (ItemsSource is IList list)
+        DragTabItem container = _draggedItem;
+
+        if (ItemsSource is not IList list)
+        {
+            return;
+        }
+
+        int oldIndex = list.IndexOf(item);
+        int newIndex = container.LogicalIndex;
+
+        if (newIndex == oldIndex)
+        {
+            return;
+        }
+
+        // We want to avoid triggering a change of DataContext on the selected container.
+        // We cannot use Remove() / Insert() as it will trigger an unwanted change of
+        // DataContext on the selected container (back and forth).
+        // In order to do so we:
+
+        // Save the old indexes, to later on re-process ContainerIndexChangedOverride
+        Span<int> indexes = list.Count <= 32 ? stackalloc int[list.Count] : new int[list.Count];
+        for (int i = 0; i < indexes.Length; i++)
+        {
+            indexes[i] = i;
+        }
+
+        var selectionMode = SelectionMode;
+        try
+        {
+            // - Prevent ContainerIndexChangedOverride while re-ordering the items
+            _isContainerSwapping = true;
+            BeginInit();
+
+            // - Temporarily set SelectionMode to Single
+            // When SelectionMode is AlwaysSelected, removing an item will change 
+            // the DataContext of the selected item to another item.
+            // To avoid this, we temporarily set SelectionMode to Single.
+            SelectionMode = SelectionMode.Single;
+            var temp = list[newIndex];
+
+            // - Move the item directly and set the selected index to the new index
+            // The moved item is already available at newIndex position
+            list[newIndex] = list[oldIndex];
+            indexes[newIndex] = oldIndex;
+            SelectedIndex = newIndex;
+
+            // - Shift the necessary items
+            if (oldIndex < newIndex)
             {
-                if (container.LogicalIndex != list.IndexOf(item))
+                for (int i = oldIndex; i < newIndex - 1; ++i)
                 {
-                    list.Remove(item);
-                    list.Insert(container.LogicalIndex, item);
-
-                    SelectedItem = item;
-
-                    int i = 0;
-
-                    foreach (var dragTabItem in DragTabItems())
-                        dragTabItem.LogicalIndex = i++;
+                    indexes[i] = indexes[i + 1];
+                    list[i] = list[i + 1];
                 }
+
+                indexes[newIndex - 1] = newIndex;
+                list[newIndex - 1] = temp;
+            }
+            else
+            {
+                for (int i = oldIndex; i > newIndex + 1; --i)
+                {
+                    indexes[i] = indexes[i - 1];
+                    list[i] = list[i - 1];
+                }
+
+                indexes[newIndex + 1] = newIndex;
+                list[newIndex + 1] = temp;
+            }
+        }
+        finally
+        {
+            SelectedItem = item; // Do it first to ensure an item is selected when switching back to AlwaysSelected
+            SelectionMode = selectionMode;
+            EndInit();
+            _isContainerSwapping = false;
+
+            int i = 0;
+            foreach (var dragTabItem in DragTabItems())
+            {
+                int newIndexLocal = i++;
+                dragTabItem.LogicalIndex = newIndexLocal;
+
+                // Unclear if ContainerIndexChangedOverride is actually necessary
+                ContainerIndexChangedOverride(dragTabItem, indexes[newIndexLocal], newIndexLocal);
             }
         }
     }

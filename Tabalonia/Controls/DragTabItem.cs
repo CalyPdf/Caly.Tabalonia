@@ -8,7 +8,7 @@ public class DragTabItem : TabItem
 {
     #region Private Fields
 
-    private LeftPressedThumb _thumb = null!;
+    private LeftPressedThumb? _thumb = null;
     
     private int _prevZindex;
     private int _logicalIndex;
@@ -92,8 +92,18 @@ public class DragTabItem : TabItem
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
+        if (_thumb is null)
+        {
+            _thumb = e.Find<LeftPressedThumb>("PART_Thumb");
+        }
+        else
+        {
+            // Unclear why it happens after changing TabsControl.MoveTabModelsIfNeeded()
+            _thumb.DragStarted -= ThumbOnDragStarted;
+            _thumb.DragDelta -= ThumbOnDragDelta;
+            _thumb.DragCompleted -= ThumbOnDragCompleted;
+        }
 
-        _thumb = e.Find<LeftPressedThumb>("PART_Thumb");
         _thumb.DragStarted += ThumbOnDragStarted;
         _thumb.DragDelta += ThumbOnDragDelta;
         _thumb.DragCompleted += ThumbOnDragCompleted;

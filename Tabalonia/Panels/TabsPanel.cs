@@ -161,7 +161,7 @@ public class TabsPanel : Panel
 
             if (!Equals(item, dragItem) && item.LogicalIndex >= _tabsControl.FixedHeaderCount)
             {
-                SendToLocation(item, currentCoord, _itemWidth);
+                Dispatcher.UIThread.Invoke(() => SetLocation(item, currentCoord, _itemWidth), DispatcherPriority.Loaded);
             }
             else
             {
@@ -259,8 +259,8 @@ public class TabsPanel : Panel
         return currentLocations;
     }
         
-        
-    private async void SendToLocation(DragTabItem item, double location, double width)
+        /*
+    private async Task SendToLocation(DragTabItem item, double location, double width)
     {
         bool itemIsAnimating = _activeStoryboardTargetLocations.TryGetValue(item, out double activeTarget);
         
@@ -304,6 +304,7 @@ public class TabsPanel : Panel
             
         _activeStoryboardTargetLocations.Remove(item);
     }
+    */
 
 
     private static void SetLocation(DragTabItem dragTabItem, double x, double width)

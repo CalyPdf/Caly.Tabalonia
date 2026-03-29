@@ -11,6 +11,7 @@ public class TabsControl : TabControl
 {
     #region Constants
 
+    private const double DefaultMinTabWidth = 60;
     private const double DefaultTabWidth = 140;
 
     public const double WindowsAndLinuxDefaultLeftThumbWidth = 4d;
@@ -39,6 +40,8 @@ public class TabsControl : TabControl
     public static readonly StyledProperty<double> AdjacentHeaderItemOffsetProperty =
         AvaloniaProperty.Register<TabsControl, double>(nameof(AdjacentHeaderItemOffset), defaultValue: 0);
 
+    public static readonly StyledProperty<double> MinTabItemWidthProperty =
+        AvaloniaProperty.Register<TabsControl, double>(nameof(MinTabItemWidth), defaultValue: DefaultMinTabWidth);
 
     public static readonly StyledProperty<double> TabItemWidthProperty =
         AvaloniaProperty.Register<TabsControl, double>(nameof(TabItemWidth), defaultValue: DefaultTabWidth);
@@ -109,10 +112,19 @@ public class TabsControl : TabControl
 
     public static readonly StyledProperty<object?> LeftContentProperty =
         AvaloniaProperty.Register<TabsControl, object?>(nameof(LeftContent));
-    
+
     public static readonly StyledProperty<object?> RightContentProperty =
         AvaloniaProperty.Register<TabsControl, object?>(nameof(RightContent));
-    
+
+    public static readonly DirectProperty<TabsControl, bool> IsTabStripOverflowingProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, bool>(nameof(IsTabStripOverflowing), o => o.IsTabStripOverflowing);
+
+    public static readonly DirectProperty<TabsControl, bool> CanScrollLeftProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, bool>(nameof(CanScrollLeft), o => o.CanScrollLeft);
+
+    public static readonly DirectProperty<TabsControl, bool> CanScrollRightProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, bool>(nameof(CanScrollRight), o => o.CanScrollRight);
+
     #endregion
 
 
@@ -129,12 +141,16 @@ public class TabsControl : TabControl
         _tabsPanel = new TabsPanel(this)
         {
             ItemWidth = TabItemWidth,
+            MinItemWidth = MinTabItemWidth,
             ItemOffset = AdjacentHeaderItemOffset
         };
 
         _tabsPanel.DragCompleted += TabsPanelOnDragCompleted;
+        _tabsPanel.OverflowChanged += isOverflowing => IsTabStripOverflowing = isOverflowing;
+        _tabsPanel.CanScrollLeftChanged += canScroll => CanScrollLeft = canScroll;
+        _tabsPanel.CanScrollRightChanged += canScroll => CanScrollRight = canScroll;
 
-        ItemsPanel = new FuncTemplate<Panel>(() => _tabsPanel);
+        ItemsPanel = new FuncTemplate<Panel?>(() => _tabsPanel);
 
         LastTabClosedAction = (_, _) => GetThisWindow()?.Close();
 
@@ -191,6 +207,11 @@ public class TabsControl : TabControl
         set => SetValue(AdjacentHeaderItemOffsetProperty, value);
     }
 
+    public double MinTabItemWidth
+    {
+        get => GetValue(MinTabItemWidthProperty);
+        set => SetValue(MinTabItemWidthProperty, value);
+    }
 
     public double TabItemWidth
     {
@@ -300,13 +321,31 @@ public class TabsControl : TabControl
         get => GetValue(LeftContentProperty);
         set => SetValue(LeftContentProperty, value);
     }
-    
+
     public object? RightContent
     {
         get => GetValue(RightContentProperty);
         set => SetValue(RightContentProperty, value);
     }
     
+    public bool IsTabStripOverflowing
+    {
+        get;
+        private set => SetAndRaise(IsTabStripOverflowingProperty, ref field, value);
+    }
+
+    public bool CanScrollLeft
+    {
+        get;
+        private set => SetAndRaise(CanScrollLeftProperty, ref field, value);
+    }
+
+    public bool CanScrollRight
+    {
+        get;
+        private set => SetAndRaise(CanScrollRightProperty, ref field, value);
+    }
+
     #endregion
 
 
@@ -325,6 +364,16 @@ public class TabsControl : TabControl
         rightDragWindowThumb.AddHandler(PointerPressedEvent, OnThumbBeginDrag, handledEventsToo: true);
         // rightDragWindowThumb.DragDelta += WindowDragThumbOnDragDelta;
         rightDragWindowThumb.DoubleTapped += WindowDragThumbOnDoubleTapped;
+
+        if (e.NameScope.Find<Button>("PART_ScrollTabsLeftButton") is { } scrollLeft)
+        {
+            scrollLeft.Click += (_, _) => _tabsPanel.ScrollLeft();
+        }
+
+        if (e.NameScope.Find<Button>("PART_ScrollTabsRightButton") is { } scrollRight)
+        {
+            scrollRight.Click += (_, _) => _tabsPanel.ScrollRight();
+        }
     }
 
     protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) =>
@@ -342,6 +391,17 @@ public class TabsControl : TabControl
         else if (change.Property == TabItemWidthProperty)
         {
             _tabsPanel.ItemWidth = TabItemWidth;
+        }
+        else if (change.Property == MinTabItemWidthProperty)
+        {
+            _tabsPanel.MinItemWidth = MinTabItemWidth;
+        }
+        else if (change.Property == SelectedIndexProperty)
+        {
+            if (SelectedIndex >= 0 && ItemCount > 0)
+            {
+                _tabsPanel.ScrollToTab(SelectedIndex);
+            }
         }
     }
 

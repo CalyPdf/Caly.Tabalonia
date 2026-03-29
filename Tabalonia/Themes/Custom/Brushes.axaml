@@ -5,6 +5,13 @@
             <SolidColorBrush x:Key="TabControlWindowActiveBackgroundBrush" Color="#D0D0D0" />
             <SolidColorBrush x:Key="TabControlWindowInactiveBackgroundBrush" Color="#DFDFDF" />
 
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundBrush" Color="#333333" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundPointerOverBrush" Color="#111111" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundInactiveBrush" Color="#888888" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundDisabledBrush" Color="#BBBBBB" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonBackgroundPointerOverBrush" Color="#B9BABA" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonBackgroundPressedBrush" Color="#CCCCCC" />
+
             <SolidColorBrush x:Key="TabItemBackgroundBrush" Color="#D0D0D0" />
             <SolidColorBrush x:Key="TabItemBackgroundBrushWindowInactive" Color="#DEDEDE" />
 
@@ -30,6 +37,13 @@
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="TabControlWindowActiveBackgroundBrush" Color="#202020" />
             <SolidColorBrush x:Key="TabControlWindowInactiveBackgroundBrush" Color="#2F2F2F" />
+
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundBrush" Color="#CCCCCC" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundPointerOverBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundInactiveBrush" Color="#666666" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonForegroundDisabledBrush" Color="#444444" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonBackgroundPointerOverBrush" Color="#464546" />
+            <SolidColorBrush x:Key="TabScrollNavigationButtonBackgroundPressedBrush" Color="#333333" />
 
             <SolidColorBrush x:Key="TabItemBackgroundBrush" Color="#202020" />
             <SolidColorBrush x:Key="TabItemBackgroundBrushWindowInactive" Color="#2E2E2E" />

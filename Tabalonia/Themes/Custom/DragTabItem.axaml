@@ -88,6 +88,7 @@
         <Setter Property="Height" Value="32" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="CornerRadius" Value="4 4 0 0" />
+        <Setter Property="ToolTip.Tip" Value="{Binding $self.Header}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid ColumnDefinitions="Auto, *, Auto">

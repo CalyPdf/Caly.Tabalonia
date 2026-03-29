@@ -65,12 +65,23 @@
                                    Theme="{StaticResource WindowThumbStyle}"/>
                             
                             <ItemsPresenter Name="PART_ItemsPresenter"
+                                            ClipToBounds="True"
                                             ItemsPanel="{TemplateBinding ItemsPanel}" />
 
                             <Button Name="PART_AddItemButton"
-                                    Classes="AddItemCommandButtonStyle" 
+                                    Classes="AddItemCommandButtonStyle"
                                     Command="{Binding AddItemCommand, RelativeSource={RelativeSource TemplatedParent}}"
                                     IsVisible="{TemplateBinding ShowDefaultAddButton}"/>
+
+                            <Button Name="PART_ScrollTabsLeftButton"
+                                    Classes="TabScrollLeft"
+                                    IsVisible="{TemplateBinding IsTabStripOverflowing}"
+                                    IsEnabled="{TemplateBinding CanScrollLeft}" />
+
+                            <Button Name="PART_ScrollTabsRightButton"
+                                    Classes="TabScrollRight"
+                                    IsVisible="{TemplateBinding IsTabStripOverflowing}"
+                                    IsEnabled="{TemplateBinding CanScrollRight}" />
 
                             <Thumb Name="PART_RightDragWindowThumb"
                                    MinWidth="{TemplateBinding RightThumbWidth}"

@@ -7,10 +7,10 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Tabalonia.Demo.MainWindow"
         Title="Tabalonia Demo"
-        
         Background="{DynamicResource TabControlWindowActiveBackgroundBrush}"
-        ExtendClientAreaChromeHints="PreferSystemChrome"
-        ExtendClientAreaToDecorationsHint="True">
+        WindowDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        x:DataType="dragablzDemo:MainViewModel">
    
     <controls:TabsControl ItemsSource="{Binding TabItems}"
                           NewItemFactory="{Binding NewItemFactory}"

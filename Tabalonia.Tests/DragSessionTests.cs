@@ -15,9 +15,9 @@ namespace Tabalonia.Tests;
 /// screen space (Window.Position is ignored by PointToScreen), so windows are separated
 /// vertically via the tab control's Margin.
 /// </summary>
-public class DragSessionTests
+public class DragSessionTests : TabsWindowTest
 {
-    private static (Window Window, TabsControl Tabs, ObservableCollection<string> Items) CreateTabsWindow(
+    private (Window Window, TabsControl Tabs, ObservableCollection<string> Items) CreateTabsWindow(
         double topOffset, params string[] items)
     {
         var itemsSource = new ObservableCollection<string>(items);
@@ -29,8 +29,8 @@ public class DragSessionTests
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
         };
 
-        var window = new Window { Width = 600, Height = 500, Content = tabs };
-        window.Show();
+        var window = ShowWindow(new Window { Width = 600, Height = 500, Content = tabs });
+        TrackDetachedWindowsOf(tabs);
 
         return (window, tabs, itemsSource);
     }

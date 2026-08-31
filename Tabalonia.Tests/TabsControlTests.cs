@@ -6,9 +6,9 @@ using Xunit;
 
 namespace Tabalonia.Tests;
 
-public class TabsControlTests
+public class TabsControlTests : TabsWindowTest
 {
-    private static (Window Window, TabsControl Tabs, ObservableCollection<string> Items) CreateShownTabsControl(
+    private (Window Window, TabsControl Tabs, ObservableCollection<string> Items) CreateShownTabsControl(
         params string[] items)
     {
         var itemsSource = new ObservableCollection<string>(items);
@@ -18,8 +18,7 @@ public class TabsControlTests
             ItemsSource = itemsSource
         };
 
-        var window = new Window { Content = tabs };
-        window.Show();
+        var window = ShowWindow(new Window { Content = tabs });
 
         return (window, tabs, itemsSource);
     }

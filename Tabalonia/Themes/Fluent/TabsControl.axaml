@@ -99,6 +99,104 @@
         </Style>
     </ControlTheme>
 
+    <!-- Overflow scroll buttons. Mirrors the Button.TabScrollLeft / Button.TabScrollRight styles in
+         the Custom theme; both themes have to offer the same PART_* names. -->
+    <ControlTheme x:Key="TabScrollButton" TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Padding" Value="6 5 6 6" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="RenderTransform" Value="none" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+            </Transitions>
+        </Setter>
+
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter x:Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Foreground="{TemplateBinding Foreground}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ControlTemplate>
+        </Setter>
+
+        <!-- The chevron paths bind to the Foreground of the button itself, so the state styles have
+             to set it there and not only on the content presenter. -->
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPointerOver}" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPointerOver}" />
+        </Style>
+
+        <Style Selector="^:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.98)" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+        </Style>
+
+        <Style Selector="^:disabled">
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
+        </Style>
+
+        <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundDisabled}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushDisabled}" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="TabScrollLeftButton" TargetType="Button" BasedOn="{StaticResource TabScrollButton}">
+        <Setter Property="Content">
+            <Template>
+                <Viewbox Width="20"
+                         Height="20"
+                         Stretch="Uniform">
+                    <Canvas Width="24" Height="24">
+                        <Path Fill="{Binding $parent[Button].Foreground}"
+                              Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" />
+                    </Canvas>
+                </Viewbox>
+            </Template>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="TabScrollRightButton" TargetType="Button" BasedOn="{StaticResource TabScrollButton}">
+        <Setter Property="Content">
+            <Template>
+                <Viewbox Width="20"
+                         Height="20"
+                         Stretch="Uniform">
+                    <Canvas Width="24" Height="24">
+                        <Path Fill="{Binding $parent[Button].Foreground}"
+                              Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" />
+                    </Canvas>
+                </Viewbox>
+            </Template>
+        </Setter>
+    </ControlTheme>
+
     <ControlTheme x:Key="{x:Type controls:TabsControl}" TargetType="controls:TabsControl">
         <Setter Property="Margin" Value="0" />
         <Setter Property="Padding" Value="{DynamicResource TabItemMargin}" />
@@ -126,12 +224,23 @@
 
 
                             <ItemsPresenter Name="PART_ItemsPresenter"
+                                            ClipToBounds="True"
                                             ItemsPanel="{TemplateBinding ItemsPanel}" />
 
                             <Button Name="PART_AddItemButton"
                                     Command="{Binding AddItemCommand, RelativeSource={RelativeSource TemplatedParent}}"
-                                    Theme="{StaticResource AddItemCommandButton}" 
+                                    Theme="{StaticResource AddItemCommandButton}"
                                     IsVisible="{TemplateBinding ShowDefaultAddButton}"/>
+
+                            <Button Name="PART_ScrollTabsLeftButton"
+                                    Theme="{StaticResource TabScrollLeftButton}"
+                                    IsVisible="{TemplateBinding IsTabStripOverflowing}"
+                                    IsEnabled="{TemplateBinding CanScrollLeft}" />
+
+                            <Button Name="PART_ScrollTabsRightButton"
+                                    Theme="{StaticResource TabScrollRightButton}"
+                                    IsVisible="{TemplateBinding IsTabStripOverflowing}"
+                                    IsEnabled="{TemplateBinding CanScrollRight}" />
 
                             <Thumb Name="PART_RightDragWindowThumb"
                                    MinWidth="{TemplateBinding RightThumbWidth}" />

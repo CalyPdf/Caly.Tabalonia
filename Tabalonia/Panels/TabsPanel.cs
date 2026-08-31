@@ -8,29 +8,88 @@ namespace Tabalonia.Panels;
 public class TabsPanel : Panel
 {
     #region Private Fields
-    
+
     private readonly TabsControl _tabsControl;
-    
+
     private readonly Dictionary<DragTabItem, LocationInfo> _itemsLocations = new();
     private double _itemWidth;
     private readonly Dictionary<DragTabItem, double> _activeStoryboardTargetLocations = new();
     private DragTabItem? _dragItem;
-    
+    private bool _isOverflowing;
+    private double _scrollOffset;
+    private double _maxScrollOffset;
+    private bool _canScrollLeft;
+    private bool _canScrollRight;
+    private double _viewportWidth;
+    private int _pendingScrollToIndex = -1;
+
+    private const double ScrollStep = 80.0;
+
     #endregion
 
 
     public event Action? DragCompleted;
-    
-    
+    public event Action<bool>? OverflowChanged;
+    public event Action<bool>? CanScrollLeftChanged;
+    public event Action<bool>? CanScrollRightChanged;
+
+
     public TabsPanel(TabsControl tabsControl) => _tabsControl = tabsControl;
 
 
     #region Public Properties
 
+    public double MinItemWidth { get; internal set; }
+
     public double ItemWidth { get; internal set; }
 
     public double ItemOffset { get; internal set; }
-    
+
+    #endregion
+
+
+    #region Public Methods
+
+    public void ScrollLeft() => SetScrollOffset(_scrollOffset - ScrollStep);
+
+    public void ScrollRight() => SetScrollOffset(_scrollOffset + ScrollStep);
+
+    public void ScrollToTab(int logicalIndex)
+    {
+        if (logicalIndex < 0)
+        {
+            return;
+        }
+
+        // Layout not yet happened: store and let ArrangeImpl apply it with fresh values.
+        if (_viewportWidth <= 0 || _itemWidth <= 0)
+        {
+            _pendingScrollToIndex = logicalIndex;
+            return;
+        }
+
+        double tabX = logicalIndex * (_itemWidth + ItemOffset);
+        double tabRight = tabX + _itemWidth;
+
+        // Tab is fully visible: do nothing, no layout pass, no events.
+        if (tabX >= _scrollOffset && tabRight <= _scrollOffset + _viewportWidth)
+        {
+            return;
+        }
+
+        // Tab is partially or not visible: scroll the minimum distance.
+        // Left of viewport → make it the first visible tab.
+        // Right of viewport → make it the last visible tab.
+        if (tabX < _scrollOffset)
+        {
+            SetScrollOffset(tabX);
+        }
+        else
+        {
+            SetScrollOffset(tabRight - _viewportWidth);
+        }
+    }
+
     #endregion
 
     
@@ -67,9 +126,39 @@ public class TabsPanel : Panel
         
     #endregion
     
-    
+    private void SetScrollOffset(double newOffset)
+    {
+        double clamped = Max(0, Min(newOffset, _maxScrollOffset));
+        if (Abs(clamped - _scrollOffset) > 0.5)
+        {
+            _scrollOffset = clamped;
+            NotifyScrollButtonStates();
+            InvalidateArrange();
+        }
+    }
+
+    private void NotifyScrollButtonStates()
+    {
+        bool canLeft = _scrollOffset > 0.5;
+        bool canRight = _scrollOffset < _maxScrollOffset - 0.5;
+
+        if (canLeft != _canScrollLeft)
+        {
+            _canScrollLeft = canLeft;
+            Dispatcher.UIThread.Post(() => CanScrollLeftChanged?.Invoke(_canScrollLeft), DispatcherPriority.Loaded);
+        }
+
+        if (canRight != _canScrollRight)
+        {
+            _canScrollRight = canRight;
+            Dispatcher.UIThread.Post(() => CanScrollRightChanged?.Invoke(_canScrollRight), DispatcherPriority.Loaded);
+        }
+    }
+
+
     private Size MeasureImpl(Size availableSize)
     {
+        bool previousOverflow = _isOverflowing;
         _itemWidth = GetAvailableWidth(availableSize);
 
         double height = 0;
@@ -88,6 +177,13 @@ public class TabsPanel : Panel
                 width += ItemOffset;
 
             isFirst = false;
+        }
+
+        _isOverflowing = Children.Count > 0 && width > availableSize.Width + 0.5;
+
+        if (previousOverflow != _isOverflowing)
+        {
+            Dispatcher.UIThread.Post(() => OverflowChanged?.Invoke(_isOverflowing), DispatcherPriority.Loaded);
         }
 
         return new Size(width, height);
@@ -123,7 +219,38 @@ public class TabsPanel : Panel
         
     private Size ArrangeImpl(Size finalSize)
     {
-        double x = 0;
+        int tabsCount = Children.Count;
+        if (tabsCount > 0)
+        {
+            double totalTabsWidth = tabsCount * _itemWidth + (tabsCount - 1) * ItemOffset;
+            _maxScrollOffset = Max(0, totalTabsWidth - finalSize.Width);
+            _scrollOffset = Min(_scrollOffset, _maxScrollOffset);
+        }
+        else
+        {
+            _maxScrollOffset = 0;
+            _scrollOffset = 0;
+        }
+
+        _viewportWidth = finalSize.Width;
+
+        if (_pendingScrollToIndex >= 0)
+        {
+            int idx = _pendingScrollToIndex;
+            _pendingScrollToIndex = -1;
+            double tabX = idx * (_itemWidth + ItemOffset);
+            double tabRight = tabX + _itemWidth;
+            if (tabX < _scrollOffset)
+            {
+                _scrollOffset = Max(0, tabX);
+            }
+            else if (tabRight > _scrollOffset + _viewportWidth)
+            {
+                _scrollOffset = Min(_maxScrollOffset, tabRight - _viewportWidth);
+            }
+        }
+
+        double x = -_scrollOffset;
         int z = ZIndexes.NonSelected;
         int logicalIndex = 0;
 
@@ -144,24 +271,25 @@ public class TabsPanel : Panel
             x += _itemWidth + ItemOffset;
         }
 
+        NotifyScrollButtonStates();
+
         return finalSize;
     }
 
-        
+
     private Size DragArrangeImpl(DragTabItem dragItem, Size finalSize)
     {
         var dragItemsLocations = GetLocations(Children.OfType<DragTabItem>(), dragItem);
-        
-        double currentCoord = 0.0;
-            
-            
+
+        double currentCoord = -_scrollOffset;
+
         foreach (var location in dragItemsLocations)
         {
             var item = location.Item;
 
             if (!Equals(item, dragItem) && item.LogicalIndex >= _tabsControl.FixedHeaderCount)
             {
-                SendToLocation(item, currentCoord, _itemWidth);
+                Dispatcher.UIThread.Invoke(() => SetLocation(item, currentCoord, _itemWidth), DispatcherPriority.Loaded);
             }
             else
             {
@@ -169,16 +297,16 @@ public class TabsPanel : Panel
 
                 if (dragItem.X > maxX) dragItem.X = maxX;
 
-                double minX = CalculateMinX();
+                double minX = CalculateMinX() - _scrollOffset;
 
                 if (dragItem.X < minX) dragItem.X = minX;
 
                 SetLocation(dragItem, dragItem.X, _itemWidth);
             }
-                
+
             currentCoord += _itemWidth + ItemOffset;
         }
-        
+
         return finalSize;
     }
     
@@ -202,8 +330,8 @@ public class TabsPanel : Panel
     private Size DragCompletedArrangeImpl(DragTabItem dragItem, Size finalSize)
     {
         var dragItemsLocations = GetLocations(Children.OfType<DragTabItem>(), dragItem);
-            
-        double currentCoord = 0.0;
+
+        double currentCoord = -_scrollOffset;
         int z = ZIndexes.NonSelected;
         int logicalIndex = 0;
 
@@ -233,8 +361,14 @@ public class TabsPanel : Panel
             return 0;
 
         double itemWidth = availableSize.Width / tabsCount - ItemOffset * (tabsCount - 1) / tabsCount;
+        double effectiveWidth = Min(ItemWidth, itemWidth);
 
-        return Min(ItemWidth, itemWidth);
+        if (MinItemWidth > 0)
+        {
+            return Max(MinItemWidth, effectiveWidth);
+        }
+
+        return effectiveWidth;
     }
 
         
@@ -269,8 +403,8 @@ public class TabsPanel : Panel
         return currentLocations;
     }
         
-        
-    private async void SendToLocation(DragTabItem item, double location, double width)
+        /*
+    private async Task SendToLocation(DragTabItem item, double location, double width)
     {
         bool itemIsAnimating = _activeStoryboardTargetLocations.TryGetValue(item, out double activeTarget);
         
@@ -314,6 +448,7 @@ public class TabsPanel : Panel
             
         _activeStoryboardTargetLocations.Remove(item);
     }
+    */
 
 
     private static void SetLocation(DragTabItem dragTabItem, double x, double width)

@@ -4,6 +4,13 @@
                     xmlns:converters="clr-namespace:Tabalonia.Converters">
 
     <x:Double x:Key="TabItemMinHeight">48</x:Double>
+    <!-- Tighter than Fluent TabItemHeaderMargin (12,0,12,0): a DragTabItem also has to fit a close
+         button, and at MinTabItemWidth there is no room for both plus a readable header. -->
+    <Thickness x:Key="DragTabItemHeaderMargin">8,0,4,0</Thickness>
+
+    <!-- Fluent TabItemHeaderFontSize is 24, sized for a handful of pivot-style headers. A drag tab
+         strip holds many closable tabs that share the width, so it uses the standard body size. -->
+    <x:Double x:Key="DragTabItemHeaderFontSize">14</x:Double>
     <x:Double x:Key="TabItemVerticalPipeHeight">24</x:Double>
     <x:Double x:Key="TabItemPipeThickness">2</x:Double>
 
@@ -120,14 +127,16 @@
     </ControlTheme>
 
     <ControlTheme x:Key="{x:Type controls:DragTabItem}" TargetType="controls:DragTabItem">
-        <Setter Property="FontSize" Value="{DynamicResource TabItemHeaderFontSize}" />
+        <Setter Property="FontSize" Value="{DynamicResource DragTabItemHeaderFontSize}" />
         <Setter Property="FontWeight" Value="{DynamicResource TabItemHeaderThemeFontWeight}" />
         <Setter Property="Background" Value="{DynamicResource TabItemHeaderBackgroundUnselected}" />
         <Setter Property="Foreground" Value="{DynamicResource TabItemHeaderForegroundUnselected}" />
-        <Setter Property="Padding" Value="{DynamicResource TabItemHeaderMargin}" />
+        <Setter Property="Padding" Value="{DynamicResource DragTabItemHeaderMargin}" />
         <Setter Property="Margin" Value="0" />
         <Setter Property="MinHeight" Value="{DynamicResource TabItemMinHeight}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <!-- Narrow tabs clip their header, so keep the full text reachable (as the Custom theme does). -->
+        <Setter Property="ToolTip.Tip" Value="{Binding $self.Header}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border
@@ -139,8 +148,15 @@
                     Padding="{TemplateBinding Padding}">
                     <Panel>
                         <Grid ColumnDefinitions="* Auto">
+                            <!-- On a narrow tab the header runs out of room. The margin keeps it off
+                                 the close button, TextBlock.TextTrimming inherits into the header
+                                 content so text ends in an ellipsis instead of a hard cut, and
+                                 ClipToBounds catches header templates that are not text. -->
                             <ContentPresenter Grid.Column="0"
                                               Name="PART_ContentPresenter"
+                                              Margin="0 0 4 0"
+                                              ClipToBounds="True"
+                                              TextBlock.TextTrimming="CharacterEllipsis"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               Content="{TemplateBinding Header}"

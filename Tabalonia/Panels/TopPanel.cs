@@ -15,6 +15,8 @@ public sealed class TopPanel : Panel
             LeftDragWindowThumb = Children.Single(a => a.Name == "PART_LeftDragWindowThumb"),
             TabsControl = Children.Single(a => a.Name == "PART_ItemsPresenter"),
             AddTabButton = Children.Single(a => a.Name == "PART_AddItemButton"),
+            ScrollLeftButton = Children.FirstOrDefault(a => a.Name == "PART_ScrollTabsLeftButton"),
+            ScrollRightButton = Children.FirstOrDefault(a => a.Name == "PART_ScrollTabsRightButton"),
             RightDragWindowThumb = Children.Single(a => a.Name == "PART_RightDragWindowThumb"),
             RightContentControl = Children.Single(a => a.Name == "PART_RightContent"),
         };
@@ -39,14 +41,31 @@ public sealed class TopPanel : Panel
         MeasureControl(parts.LeftContentControl, ref width, ref availableWidth, availableHeight);
         MeasureControl(parts.LeftDragWindowThumb, ref width, ref availableWidth, availableHeight);
         MeasureControl(parts.AddTabButton, ref width, ref availableWidth, availableHeight);
+        if (parts.ScrollLeftButton is not null)
+        {
+            MeasureControl(parts.ScrollLeftButton, ref width, ref availableWidth, availableHeight);
+        }
+
+        if (parts.ScrollRightButton is not null)
+        {
+            MeasureControl(parts.ScrollRightButton, ref width, ref availableWidth, availableHeight);
+        }
         MeasureControl(parts.RightDragWindowThumb, ref width, ref availableWidth, availableHeight);
         MeasureControl(parts.RightContentControl, ref width, ref availableWidth, availableHeight);
 
         parts.TabsControl.Measure(new Size(availableWidth, availableHeight));
         width += parts.TabsControl.DesiredSize.Width;
-        Control[] affectingHeight =
-            [parts.LeftContentControl, parts.TabsControl, parts.AddTabButton, parts.RightContentControl];
-        height = affectingHeight.Max(a => a.DesiredSize.Height);
+
+        height = Math.Max(Math.Max(parts.LeftContentControl.DesiredSize.Height, parts.TabsControl.DesiredSize.Height),
+                 Math.Max(parts.AddTabButton.DesiredSize.Height, parts.RightContentControl.DesiredSize.Height));
+        if (parts.ScrollLeftButton is not null)
+        {
+            height = Math.Max(height, parts.ScrollLeftButton.DesiredSize.Height);
+        }
+        if (parts.ScrollRightButton is not null)
+        {
+            height = Math.Max(height, parts.ScrollRightButton.DesiredSize.Height);
+        }
 
         return new Size(width, height);
 
@@ -71,6 +90,8 @@ public sealed class TopPanel : Panel
             LeftDragWindowThumb = parts.LeftDragWindowThumb.DesiredSize.Width,
             TabsControl = parts.TabsControl.DesiredSize.Width,
             AddTabButton = parts.AddTabButton.DesiredSize.Width,
+            ScrollLeftButton = parts.ScrollLeftButton?.DesiredSize.Width ?? 0,
+            ScrollRightButton = parts.ScrollRightButton?.DesiredSize.Width ?? 0,
             RightDragWindowThumb = parts.RightDragWindowThumb.DesiredSize.Width,
             RightContentControl = parts.RightContentControl.DesiredSize.Width,
         };
@@ -80,6 +101,8 @@ public sealed class TopPanel : Panel
         double withoutTabsWidth = partsWidth.LeftContentControl
                                   + partsWidth.LeftDragWindowThumb
                                   + partsWidth.AddTabButton
+                                  + partsWidth.ScrollLeftButton
+                                  + partsWidth.ScrollRightButton
                                   + partsWidth.RightDragWindowThumb
                                   + partsWidth.RightContentControl;
         
@@ -104,7 +127,7 @@ public sealed class TopPanel : Panel
     }
 
     /// <summary>
-    /// |leftContent|leftThumb|tab1    |tab2    |addTabButton|         rightThumb        |rightContent|
+    /// |leftContent|leftThumb|tab1    |tab2    |addTabButton|[←][→]|         rightThumb        |rightContent|
     /// </summary>
     private void ArrangeWhenTabsFit(Parts parts, PartsWidth widths, double tabsHeight, double finalWidth)
     {
@@ -119,11 +142,25 @@ public sealed class TopPanel : Panel
         ArrangeCenterVertical(parts.AddTabButton, x, tabsHeight);
         x += widths.AddTabButton;
 
+        if (parts.ScrollLeftButton is not null)
+        {
+            ArrangeCenterVertical(parts.ScrollLeftButton, x, tabsHeight);
+            x += widths.ScrollLeftButton;
+        }
+
+        if (parts.ScrollRightButton is not null)
+        {
+            ArrangeCenterVertical(parts.ScrollRightButton, x, tabsHeight);
+            x += widths.ScrollRightButton;
+        }
+
         double availableSpaceWidth = finalWidth
                                      - widths.LeftContentControl
                                      - widths.LeftDragWindowThumb
                                      - widths.TabsControl
                                      - widths.AddTabButton
+                                     - widths.ScrollLeftButton
+                                     - widths.ScrollRightButton
                                      - widths.RightContentControl;
 
         parts.RightDragWindowThumb.Arrange(new Rect(x, 0, availableSpaceWidth, tabsHeight));
@@ -132,7 +169,7 @@ public sealed class TopPanel : Panel
     }
 
     /// <summary>
-    /// |leftContent|leftThumb|tab1|tab2|tab3|tab4|tab5|tab6|tab7|addTabButton|rightThumb|rightContent|
+    /// |leftContent|leftThumb|tab1|tab2|tab3|tab4|tab5|tab6|tab7|addTabButton|[←][→]|rightThumb|rightContent|
     /// </summary>
     private void ArrangeWhenTabsUnfit(Parts parts, PartsWidth widths, double tabsHeight,
         double availableTabsWidth)
@@ -148,6 +185,18 @@ public sealed class TopPanel : Panel
 
         ArrangeCenterVertical(parts.AddTabButton, x, tabsHeight);
         x += widths.AddTabButton;
+
+        if (parts.ScrollLeftButton is not null)
+        {
+            ArrangeCenterVertical(parts.ScrollLeftButton, x, tabsHeight);
+            x += widths.ScrollLeftButton;
+        }
+
+        if (parts.ScrollRightButton is not null)
+        {
+            ArrangeCenterVertical(parts.ScrollRightButton, x, tabsHeight);
+            x += widths.ScrollRightButton;
+        }
 
         parts.RightDragWindowThumb.Arrange(new Rect(x, 0, widths.RightDragWindowThumb, tabsHeight));
         x += widths.RightDragWindowThumb;
@@ -170,6 +219,8 @@ public sealed class TopPanel : Panel
         public Control LeftDragWindowThumb { get; init; }
         public Control TabsControl { get; init; }
         public Control AddTabButton { get; init; }
+        public Control? ScrollLeftButton { get; init; }
+        public Control? ScrollRightButton { get; init; }
         public Control RightDragWindowThumb { get; init; }
         public Control RightContentControl { get; init; }
     }
@@ -180,6 +231,8 @@ public sealed class TopPanel : Panel
         public double LeftDragWindowThumb { get; init; }
         public double TabsControl { get; init; }
         public double AddTabButton { get; init; }
+        public double ScrollLeftButton { get; init; }
+        public double ScrollRightButton { get; init; }
         public double RightDragWindowThumb { get; init; }
         public double RightContentControl { get; init; }
     }

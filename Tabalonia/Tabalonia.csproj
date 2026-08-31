@@ -1,20 +1,25 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
         <IsAotCompatible>true</IsAotCompatible>
 
-        <Version>12.0.0</Version>
+        <Version>12.0.2</Version>
 
         <Copyright>Copyright 2022-$([System.DateTime]::Now.ToString(`yyyy`)) &#169; The Tabalonia Project</Copyright>
-        <PackageProjectUrl>https://github.com/egorozh/Tabalonia</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/egorozh/Tabalonia</RepositoryUrl>
-        <PackageTags>Tab Control, Draggable, Avalonia, AvaloniaUI</PackageTags>
-        <Description>Tab Control with draggable tabs for Avalonia</Description>
+        <PackageId>Caly.Tabalonia</PackageId>
+        <PackageProjectUrl>https://github.com/CalyPdf/Caly.Tabalonia</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/CalyPdf/Caly.Tabalonia</RepositoryUrl>
+        <PackageTags>Tab Control, Draggable, Avalonia, AvaloniaUI, Caly, CalyPdf</PackageTags>
+        <Description>For use in Caly Pdf: Tab Control with draggable tabs for Avalonia</Description>
         <PackageIcon>Icon.png</PackageIcon>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageReleaseNotes>See https://github.com/egorozh/Tabalonia/blob/main/CHANGELOG.md</PackageReleaseNotes>
-        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageReleaseNotes>See https://github.com/CalyPdf/Caly.Tabalonia/blob/main/CHANGELOG.md</PackageReleaseNotes>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Avalonia">
+        <AvaloniaUseCompiledBindingsByDefault>True</AvaloniaUseCompiledBindingsByDefault>
     </PropertyGroup>
 
     <PropertyGroup Label="SourceLink">
@@ -25,7 +30,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="12.0.0" />
+        <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
     </ItemGroup>
 
     <ItemGroup Label="PackageIcon">

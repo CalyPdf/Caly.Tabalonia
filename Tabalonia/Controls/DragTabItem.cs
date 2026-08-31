@@ -8,7 +8,7 @@ public class DragTabItem : TabItem
 {
     #region Private Fields
 
-    private LeftPressedThumb _thumb = null!;
+    private LeftPressedThumb? _thumb;
     
     private int _prevZindex;
     private int _logicalIndex;
@@ -93,12 +93,34 @@ public class DragTabItem : TabItem
     {
         base.OnApplyTemplate(e);
 
-        var templateThumb = e.Find<LeftPressedThumb>("PART_Thumb");
+        // The template can be re-applied to a live container (containers are recycled, and
+        // reordering without rebuilding them re-runs this). Detach from the previous thumb first
+        // so handlers are not subscribed twice.
+        UnsubscribeFromThumb();
 
-        _thumb = templateThumb;
+        _thumb = e.Find<LeftPressedThumb>("PART_Thumb");
         _thumb.DragStarted += ThumbOnDragStarted;
         _thumb.DragDelta += ThumbOnDragDelta;
         _thumb.DragCompleted += ThumbOnDragCompleted;
+    }
+
+
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+
+        UnsubscribeFromThumb();
+    }
+
+
+    private void UnsubscribeFromThumb()
+    {
+        if (_thumb is null)
+            return;
+
+        _thumb.DragStarted -= ThumbOnDragStarted;
+        _thumb.DragDelta -= ThumbOnDragDelta;
+        _thumb.DragCompleted -= ThumbOnDragCompleted;
     }
 
     
@@ -155,19 +177,19 @@ public class DragTabItem : TabItem
 
     private void ThumbOnDragStarted(object? sender, VectorEventArgs args)
     {
-        RaiseEvent(new DragTabDragStartedEventArgs(DragStarted, this, args, _thumb.LastScreenPoint));
+        RaiseEvent(new DragTabDragStartedEventArgs(DragStarted, this, args, _thumb?.LastScreenPoint));
     }
 
     
     private void ThumbOnDragDelta(object? sender, VectorEventArgs e)
     {
-        var previewEventArgs = new DragTabDragDeltaEventArgs(PreviewDragDelta, this, e, _thumb.LastScreenPoint);
+        var previewEventArgs = new DragTabDragDeltaEventArgs(PreviewDragDelta, this, e, _thumb?.LastScreenPoint);
         RaiseEvent(previewEventArgs);
         // if (previewEventArgs.Cancel)
         //     _thumb.CancelDrag();
         if (!previewEventArgs.Handled)
         {
-            var eventArgs = new DragTabDragDeltaEventArgs(DragDelta, this, e, _thumb.LastScreenPoint);
+            var eventArgs = new DragTabDragDeltaEventArgs(DragDelta, this, e, _thumb?.LastScreenPoint);
             RaiseEvent(eventArgs);
             //if (eventArgs.Cancel)
             //    thumb.CancelDrag();
@@ -177,7 +199,7 @@ public class DragTabItem : TabItem
     
     private void ThumbOnDragCompleted(object? sender, VectorEventArgs e)
     {
-        var args = new DragTabDragCompletedEventArgs(DragCompleted, this, e, _thumb.LastScreenPoint);
+        var args = new DragTabDragCompletedEventArgs(DragCompleted, this, e, _thumb?.LastScreenPoint);
         RaiseEvent(args);
     }
 }

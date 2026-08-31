@@ -1,7 +1,6 @@
 # Tabalonia
 
-[![Nuget](https://img.shields.io/nuget/v/Tabalonia?label=Tabalonia)](https://www.nuget.org/packages/Tabalonia)
-[![Build](https://github.com/egorozh/Tabalonia/actions/workflows/build.yml/badge.svg)](https://github.com/egorozh/Tabalonia/actions/workflows/build.yml)
+[![Nuget](https://img.shields.io/nuget/v/Caly.Tabalonia?label=Caly.Tabalonia)](https://www.nuget.org/packages/Caly.Tabalonia)
 
 Draggable tab items on Avalonia here!
 
@@ -22,13 +21,52 @@ This is a port of the [Draggablz](https://github.com/ButchersBoy/Dragablz)
 - Two shipped themes (Custom with light/dark variants, Fluent), fully restylable via brush resources
 - AOT-compatible, no reflection
 
+## Caly fork
+
+Published as **`Caly.Tabalonia`** for [Caly PDF](https://github.com/CalyPdf/Caly).
+Changes on top of upstream [egorozh/Tabalonia](https://github.com/egorozh/Tabalonia):
+
+### New API
+
+| Member | Type | Description |
+|---|---|---|
+| `MinTabItemWidth` | `double`, default `60` | Floor for tab width — tabs stop shrinking here and the strip scrolls instead |
+| `IsTabStripOverflowing` | `bool` (read-only) | True when the tabs no longer fit the strip |
+| `CanScrollLeft` / `CanScrollRight` | `bool` (read-only) | Whether the strip can scroll further in each direction |
+| `TabDragStarted` | `EventHandler<DragTabDragStartedEventArgs>?` | Raised when a tab drag begins |
+| `TabDragCompleted` | `EventHandler<DragTabDragCompletedEventArgs>?` | Raised when the drag ends |
+| `DetachedHostFactory` | `Func<TabsControl, (TabsControl Host, Window Window)?>?` | Supplies both the host control **and** its window for a torn-off tab; falls back to `DetachedWindowFactory` when it returns `null` |
+
+### Behaviour
+
+| Change | Detail |
+|---|---|
+| Horizontal tab scrolling | An overflowing strip gets `‹` / `›` buttons (`PART_ScrollTabsLeftButton` / `PART_ScrollTabsRightButton`); selecting an off-screen tab scrolls it into view |
+| Reorder keeps `DataContext` | Dragging shifts models in place instead of remove/insert, so containers never swap model |
+| Last tab is not torn off | Dragging the only tab of a window moves the window instead; it can still be docked into another strip |
+| Closing a dragged tab | The drag reference is cleared, so finishing the gesture can't resurrect or reorder the closed tab |
+| Thumb handlers unsubscribed | `DragTabItem` detaches its thumb handlers on retemplate and on leaving the tree |
+| Runtime resizing | `TabItemWidth`, `MinTabItemWidth` and `AdjacentHeaderItemOffset` now invalidate layout when changed after load |
+
+### Themes
+
+| Change | Detail |
+|---|---|
+| Scroll buttons | Added to **both** themes; Custom gains `TabScrollNavigationButton*Brush` resources, Fluent gains `TabScrollLeftButton` / `TabScrollRightButton` control themes |
+| Fluent tab headers | Header font `24 → 14` (`DragTabItemHeaderFontSize`), tighter padding (`DragTabItemHeaderMargin`), a gutter before the close button and `CharacterEllipsis` trimming — headers no longer collide with the `×` |
+| Header tooltips | Tabs show their full header on hover, so a clipped tab stays readable |
+
+### Packaging
+
+`PackageId` `Caly.Tabalonia` · MIT `PackageLicenseExpression` · Avalonia pinned via `$(AvaloniaVersion)` · compiled bindings on by default.
+
 ## Getting Started
 
 Install the library as a NuGet package:
 
 ```powershell
-Install-Package Tabalonia
-# Or 'dotnet add package Tabalonia'
+Install-Package Caly.Tabalonia
+# Or 'dotnet add package Caly.Tabalonia'
 ```
 
 Add a theme to your `App.axaml`:

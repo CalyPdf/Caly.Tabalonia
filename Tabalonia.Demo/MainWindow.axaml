@@ -4,38 +4,68 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:dragablzDemo="clr-namespace:Tabalonia.Demo.ViewModels"
         xmlns:controls="clr-namespace:Tabalonia.Controls;assembly=Tabalonia"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="440"
         x:Class="Tabalonia.Demo.MainWindow"
         Title="Tabalonia Demo"
-        
+
+        Width="640" Height="440"
+
         Background="{DynamicResource TabControlWindowActiveBackgroundBrush}"
-        
+
         ExtendClientAreaToDecorationsHint="True"
         x:DataType="dragablzDemo:MainViewModel">
-   
-    <controls:TabsControl ItemsSource="{Binding TabItems}"
-                          NewItemFactory="{Binding NewItemFactory}"
-                          FixedHeaderCount="1"
-                          ShowDefaultAddButton="True"
-                          ShowDefaultCloseButton="True"
-                          Margin="0 8 0 0">
-        <TabControl.ContentTemplate>
-            <DataTemplate DataType="dragablzDemo:TabItemViewModel">
 
-                <Grid Background="{DynamicResource SelectedTabItemBackgroundBrush}">
-                    <TextBlock Text="{Binding SimpleContent}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                </Grid>
+    <DockPanel>
 
-            </DataTemplate>
-        </TabControl.ContentTemplate>
+        <!-- Reports what the tab strip is doing: overflow state, drag notifications, and the
+             container/model bookkeeping that reordering must leave alone. -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{DynamicResource SelectedTabItemBackgroundBrush}"
+                Padding="8 6">
+            <StackPanel Spacing="2">
+                <TextBlock Text="{Binding DragStatus}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding TabOrder}" TextTrimming="CharacterEllipsis" />
+                <TextBlock>
+                    <Run Text="Overflowing:" />
+                    <Run Text="{Binding #Tabs.IsTabStripOverflowing}" />
+                    <Run Text="   Can scroll left:" />
+                    <Run Text="{Binding #Tabs.CanScrollLeft}" />
+                    <Run Text="   right:" />
+                    <Run Text="{Binding #Tabs.CanScrollRight}" />
+                    <Run Text="   DataContext changes since drag start:" />
+                    <Run Text="{Binding DataContextChangesSinceDragStart}" />
+                </TextBlock>
+            </StackPanel>
+        </Border>
 
-        <TabControl.ItemTemplate>
-            <DataTemplate DataType="dragablzDemo:TabItemViewModel">
-                <TextBlock Text="{Binding Header}" />
-            </DataTemplate>
-        </TabControl.ItemTemplate>
-        
-    </controls:TabsControl>
+        <!-- The window is deliberately narrow: 11 tabs cannot fit at MinTabItemWidth, so the strip
+             overflows and the scroll buttons appear. Widen it to watch them disappear again. -->
+        <controls:TabsControl Name="Tabs"
+                              ItemsSource="{Binding TabItems}"
+                              NewItemFactory="{Binding NewItemFactory}"
+                              FixedHeaderCount="1"
+                              MinTabItemWidth="80"
+                              ShowDefaultAddButton="True"
+                              ShowDefaultCloseButton="True"
+                              Margin="0 8 0 0">
+            <TabControl.ContentTemplate>
+                <DataTemplate DataType="dragablzDemo:TabItemViewModel">
+
+                    <Grid Background="{DynamicResource SelectedTabItemBackgroundBrush}">
+                        <TextBlock Text="{Binding SimpleContent}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+
+            <TabControl.ItemTemplate>
+                <DataTemplate DataType="dragablzDemo:TabItemViewModel">
+                    <TextBlock Text="{Binding Header}" />
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+
+        </controls:TabsControl>
+    </DockPanel>
 </Window>

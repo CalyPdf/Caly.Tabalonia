@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Windows.Input;
 using Tabalonia.Events;
 using Tabalonia.Panels;
@@ -11,6 +12,7 @@ public class TabsControl : TabControl
 {
     #region Constants
 
+    private const double DefaultMinTabWidth = 60;
     private const double DefaultTabWidth = 140;
 
     public const double WindowsAndLinuxDefaultLeftThumbWidth = 4d;
@@ -32,7 +34,6 @@ public class TabsControl : TabControl
     private DragTabItem? _draggedItem;
     private object? _draggedTabModel;
     private bool _dragging;
-    private bool _isDetachedHost;
     private bool _skipMoveTabModelsOnDragCompleted;
     private Point? _lastKnownDragScreenPoint;
     private TabsControl? _dragSessionSourceHost;
@@ -56,6 +57,13 @@ public class TabsControl : TabControl
     private ICommand _addItemCommand;
     private ICommand _closeItemCommand;
 
+    // Set while MoveTabModelsIfNeeded shuffles the items collection in place.
+    private bool _isContainerSwapping;
+
+    private bool _isTabStripOverflowing;
+    private bool _canScrollLeft;
+    private bool _canScrollRight;
+
     #endregion
 
 
@@ -63,6 +71,10 @@ public class TabsControl : TabControl
 
     public static readonly StyledProperty<double> AdjacentHeaderItemOffsetProperty =
         AvaloniaProperty.Register<TabsControl, double>(nameof(AdjacentHeaderItemOffset), defaultValue: 0);
+
+
+    public static readonly StyledProperty<double> MinTabItemWidthProperty =
+        AvaloniaProperty.Register<TabsControl, double>(nameof(MinTabItemWidth), defaultValue: DefaultMinTabWidth);
 
 
     public static readonly StyledProperty<double> TabItemWidthProperty =
@@ -87,6 +99,13 @@ public class TabsControl : TabControl
 
     public static readonly StyledProperty<Func<object>?> NewItemFactoryProperty =
         AvaloniaProperty.Register<TabsControl, Func<object>?>(nameof(NewItemFactory));
+
+
+    public static readonly StyledProperty<EventHandler<DragTabDragStartedEventArgs>?> TabDragStartedProperty =
+        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragStartedEventArgs>?>(nameof(TabDragStarted));
+
+    public static readonly StyledProperty<EventHandler<DragTabDragCompletedEventArgs>?> TabDragCompletedProperty =
+        AvaloniaProperty.Register<TabsControl, EventHandler<DragTabDragCompletedEventArgs>?>(nameof(TabDragCompleted));
 
 
     public static readonly StyledProperty<EventHandler<TabClosedEventArgs>?> TabClosedProperty =
@@ -142,6 +161,20 @@ public class TabsControl : TabControl
 
     public static readonly StyledProperty<Func<TabsControl, Window>?> DetachedWindowFactoryProperty =
         AvaloniaProperty.Register<TabsControl, Func<TabsControl, Window>?>(nameof(DetachedWindowFactory));
+
+
+    public static readonly StyledProperty<Func<TabsControl, (TabsControl Host, Window Window)?>?> DetachedHostFactoryProperty =
+        AvaloniaProperty.Register<TabsControl, Func<TabsControl, (TabsControl Host, Window Window)?>?>(nameof(DetachedHostFactory));
+
+
+    public static readonly DirectProperty<TabsControl, bool> IsTabStripOverflowingProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, bool>(nameof(IsTabStripOverflowing), o => o.IsTabStripOverflowing);
+
+    public static readonly DirectProperty<TabsControl, bool> CanScrollLeftProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, bool>(nameof(CanScrollLeft), o => o.CanScrollLeft);
+
+    public static readonly DirectProperty<TabsControl, bool> CanScrollRightProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, bool>(nameof(CanScrollRight), o => o.CanScrollRight);
     
     #endregion
 
@@ -157,10 +190,14 @@ public class TabsControl : TabControl
         _tabsPanel = new TabsPanel(this)
         {
             ItemWidth = TabItemWidth,
+            MinItemWidth = MinTabItemWidth,
             ItemOffset = AdjacentHeaderItemOffset
         };
 
         _tabsPanel.DragCompleted += TabsPanelOnDragCompleted;
+        _tabsPanel.OverflowChanged += isOverflowing => IsTabStripOverflowing = isOverflowing;
+        _tabsPanel.CanScrollLeftChanged += canScroll => CanScrollLeft = canScroll;
+        _tabsPanel.CanScrollRightChanged += canScroll => CanScrollRight = canScroll;
 
         ItemsPanel = new FuncTemplate<Panel>(() => _tabsPanel);
 
@@ -169,6 +206,8 @@ public class TabsControl : TabControl
 
         _addItemCommand = new SimpleActionCommand(AddItem);
         _closeItemCommand = new SimpleParamActionCommand(CloseItem);
+
+        Items.CollectionChanged += OnItemsCollectionChanged;
     }
 
     #endregion
@@ -180,6 +219,13 @@ public class TabsControl : TabControl
     {
         get => GetValue(AdjacentHeaderItemOffsetProperty);
         set => SetValue(AdjacentHeaderItemOffsetProperty, value);
+    }
+
+
+    public double MinTabItemWidth
+    {
+        get => GetValue(MinTabItemWidthProperty);
+        set => SetValue(MinTabItemWidthProperty, value);
     }
 
 
@@ -215,6 +261,20 @@ public class TabsControl : TabControl
     {
         get => GetValue(NewItemFactoryProperty);
         set => SetValue(NewItemFactoryProperty, value);
+    }
+
+
+    public EventHandler<DragTabDragStartedEventArgs>? TabDragStarted
+    {
+        get => GetValue(TabDragStartedProperty);
+        set => SetValue(TabDragStartedProperty, value);
+    }
+
+
+    public EventHandler<DragTabDragCompletedEventArgs>? TabDragCompleted
+    {
+        get => GetValue(TabDragCompletedProperty);
+        set => SetValue(TabDragCompletedProperty, value);
     }
 
 
@@ -288,6 +348,30 @@ public class TabsControl : TabControl
         set => SetValue(RightContentProperty, value);
     }
 
+
+    /// <summary>
+    /// True when the tabs do not all fit in the strip, so the scroll buttons are relevant.
+    /// </summary>
+    public bool IsTabStripOverflowing
+    {
+        get => _isTabStripOverflowing;
+        private set => SetAndRaise(IsTabStripOverflowingProperty, ref _isTabStripOverflowing, value);
+    }
+
+
+    public bool CanScrollLeft
+    {
+        get => _canScrollLeft;
+        private set => SetAndRaise(CanScrollLeftProperty, ref _canScrollLeft, value);
+    }
+
+
+    public bool CanScrollRight
+    {
+        get => _canScrollRight;
+        private set => SetAndRaise(CanScrollRightProperty, ref _canScrollRight, value);
+    }
+
     /// <summary>
     /// Enables creating a new host window when a tab drag ends outside of any registered tab strip.
     /// </summary>
@@ -323,6 +407,28 @@ public class TabsControl : TabControl
         get => GetValue(DetachedWindowFactoryProperty);
         set => SetValue(DetachedWindowFactoryProperty, value);
     }
+
+
+    /// <summary>
+    /// Supplies both the window for a torn-off tab and the strip inside it, given the strip the
+    /// tab is leaving.
+    /// <para>
+    /// Use this instead of <see cref="DetachedWindowFactory"/> when the new window already
+    /// contains a <see cref="TabsControl"/> of its own - typically one declared in XAML, with
+    /// its templates, commands and bindings already set up. Returning it here avoids the
+    /// alternative of building a bare strip and re-applying all of that in code.
+    /// </para>
+    /// <para>
+    /// The returned host's <c>ItemsSource</c> must be an <see cref="IList"/>; the tab is added
+    /// to it. Return <c>null</c> to fall back to the default behaviour. This is invoked before
+    /// the tab leaves its current strip, so a factory that fails leaves the tab where it was.
+    /// </para>
+    /// </summary>
+    public Func<TabsControl, (TabsControl Host, Window Window)?>? DetachedHostFactory
+    {
+        get => GetValue(DetachedHostFactoryProperty);
+        set => SetValue(DetachedHostFactoryProperty, value);
+    }
     
     #endregion
 
@@ -344,10 +450,33 @@ public class TabsControl : TabControl
         rightDragWindowThumb.AddHandler(PointerPressedEvent, OnThumbBeginDrag, handledEventsToo: true);
         // rightDragWindowThumb.DragDelta += WindowDragThumbOnDragDelta;
         rightDragWindowThumb.DoubleTapped += WindowDragThumbOnDoubleTapped;
+
+        if (e.NameScope.Find<Button>("PART_ScrollTabsLeftButton") is { } scrollLeftButton)
+            scrollLeftButton.Click += OnScrollTabsLeftClick;
+
+        if (e.NameScope.Find<Button>("PART_ScrollTabsRightButton") is { } scrollRightButton)
+            scrollRightButton.Click += OnScrollTabsRightClick;
     }
+
+
+    private void OnScrollTabsLeftClick(object? sender, RoutedEventArgs e) => _tabsPanel.ScrollLeft();
+
+
+    private void OnScrollTabsRightClick(object? sender, RoutedEventArgs e) => _tabsPanel.ScrollRight();
 
     protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) =>
         new DragTabItem();
+
+
+    protected override void ContainerIndexChangedOverride(Control container, int oldIndex, int newIndex)
+    {
+        // While MoveTabModelsIfNeeded shuffles the collection, the intermediate index changes are
+        // noise; it replays the real ones once the collection has settled.
+        if (_isContainerSwapping)
+            return;
+
+        base.ContainerIndexChangedOverride(container, oldIndex, newIndex);
+    }
 
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -368,13 +497,29 @@ public class TabsControl : TabControl
     {
         base.OnPropertyChanged(change);
 
+        // The panel reads these as plain CLR properties, so it has to be told that the sizes it
+        // measured with are stale - otherwise the new value only takes effect on the next
+        // unrelated layout pass.
         if (change.Property == AdjacentHeaderItemOffsetProperty)
         {
             _tabsPanel.ItemOffset = AdjacentHeaderItemOffset;
+            _tabsPanel.InvalidateMeasure();
         }
         else if (change.Property == TabItemWidthProperty)
         {
             _tabsPanel.ItemWidth = TabItemWidth;
+            _tabsPanel.InvalidateMeasure();
+        }
+        else if (change.Property == MinTabItemWidthProperty)
+        {
+            _tabsPanel.MinItemWidth = MinTabItemWidth;
+            _tabsPanel.InvalidateMeasure();
+        }
+        else if (change.Property == SelectedIndexProperty)
+        {
+            // Keep the active tab in view when selection moves to a tab that is scrolled off.
+            if (SelectedIndex >= 0 && ItemCount > 0)
+                _tabsPanel.ScrollToTab(SelectedIndex);
         }
     }
 
@@ -456,10 +601,53 @@ public class TabsControl : TabControl
 
         TabClosed?.Invoke(this, new TabClosedEventArgs(item));
 
+        if (ReferenceEquals(_draggedItem, container))
+        {
+            _draggedItem = null;
+            _draggedTabModel = null;
+        }
+
         if (itemsList.Count == 0)
             LastTabClosedAction?.Invoke(this, new CloseLastTabEventArgs(GetThisWindow()));
         else if (removedItemIsSelected)
             SetSelectedNewTab(itemsList, removedItemIndex);
+    }
+
+
+    /// <summary>
+    /// Drops the dragged-tab reference once its model leaves the collection, so a tab closed while
+    /// (or after) it was dragged is not kept alive and later reordered by a stale reference.
+    /// </summary>
+    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_draggedItem is null)
+            return;
+
+        // MoveTabModelsIfNeeded overwrites the dragged model's slot while shuffling; those Replace
+        // notifications are part of the move, not a removal.
+        if (_isContainerSwapping)
+            return;
+
+        // A cross-host transfer removes the model from the source collection while the drag is
+        // still running; that session owns the reference and clears it itself when it ends.
+        if (_dragSessionPointer is not null || _dragSessionSourceHost is not null || _dragSessionWindow is not null)
+            return;
+
+        object? draggedModel = _draggedTabModel ?? _draggedItem.DataContext;
+
+        bool draggedModelWasRemoved = e.Action switch
+        {
+            NotifyCollectionChangedAction.Reset => ItemsSource is not IList list || !list.Contains(draggedModel),
+            NotifyCollectionChangedAction.Remove or NotifyCollectionChangedAction.Replace =>
+                e.OldItems is not null && e.OldItems.Cast<object?>().Any(old => Equals(old, draggedModel)),
+            _ => false
+        };
+
+        if (draggedModelWasRemoved)
+        {
+            _draggedItem = null;
+            _draggedTabModel = null;
+        }
     }
 
 
@@ -484,6 +672,8 @@ public class TabsControl : TabControl
 
     private void ItemDragStarted(object? sender, DragTabDragStartedEventArgs e)
     {
+        TabDragStarted?.Invoke(sender, e);
+
         _draggedItem = e.TabItem;
         _draggedTabModel = ItemFromContainer(_draggedItem);
         _lastKnownDragScreenPoint = e.ScreenPoint;
@@ -504,7 +694,7 @@ public class TabsControl : TabControl
             SelectedItem = item;
         }
 
-        if (IsDetachedSingleTabHost() && e.ScreenPoint is { } dragStartScreenPoint)
+        if (IsSingleTabHost() && e.ScreenPoint is { } dragStartScreenPoint)
         {
             Window? hostWindow = GetThisWindow();
 
@@ -539,7 +729,7 @@ public class TabsControl : TabControl
         {
             _lastKnownDragScreenPoint = screenPoint;
 
-            if (IsDetachedSingleTabHost() && _dragSessionWindow is not null)
+            if (IsSingleTabHost() && _dragSessionWindow is not null)
             {
                 if (!TryAttachDuringDrag(screenPoint))
                     MoveDragSessionWindow(screenPoint);
@@ -590,7 +780,7 @@ public class TabsControl : TabControl
         bool sourceDetachedDuringDrag = !ReferenceEquals(sourceHost, this);
         bool transferredBetweenHosts = TryTransferToAnotherHost(releaseScreenPoint, sourceHost);
 
-        if (!transferredBetweenHosts && !sourceDetachedDuringDrag && !sourceHost.IsDetachedSingleTabHost())
+        if (!transferredBetweenHosts && !sourceDetachedDuringDrag && !sourceHost.IsSingleTabHost())
             transferredBetweenHosts = TryDetachToNewWindow(releaseScreenPoint);
 
         if (!transferredBetweenHosts && sourceDetachedDuringDrag)
@@ -612,6 +802,8 @@ public class TabsControl : TabControl
         _dragging = false;
         _lastKnownDragScreenPoint = null;
         ResetDragSession();
+
+        TabDragCompleted?.Invoke(sender, e);
     }
 
 
@@ -647,6 +839,16 @@ public class TabsControl : TabControl
     }
 
 
+    /// <summary>
+    /// Commits a finished drag to the items collection, moving the dragged model to the index its
+    /// container ended up at.
+    /// </summary>
+    /// <remarks>
+    /// The obvious Remove()/Insert() pair makes the containers around the moved item change their
+    /// DataContext back and forth, which is visible to consumers binding per-tab state. Instead the
+    /// models are shifted in place with indexer assignments, so every container keeps the model it
+    /// already had and only the dragged one moves.
+    /// </remarks>
     private void MoveTabModelsIfNeeded()
     {
         if (_draggedItem is null)
@@ -654,24 +856,82 @@ public class TabsControl : TabControl
 
         object? item = ItemFromContainer(_draggedItem);
 
-        if (item != null)
+        if (item is null)
+            return;
+
+        if (ItemsSource is not IList list)
+            return;
+
+        int oldIndex = list.IndexOf(item);
+        int newIndex = _draggedItem.LogicalIndex;
+
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= list.Count || newIndex == oldIndex)
+            return;
+
+        // Remember where each model came from, so the container index change can be replayed once
+        // the collection has settled.
+        Span<int> sourceIndexes = list.Count <= 32 ? stackalloc int[list.Count] : new int[list.Count];
+
+        for (int i = 0; i < sourceIndexes.Length; i++)
+            sourceIndexes[i] = i;
+
+        SelectionMode selectionMode = SelectionMode;
+
+        try
         {
-            DragTabItem container = _draggedItem;
+            _isContainerSwapping = true;
+            BeginInit();
 
-            if (ItemsSource is IList list)
+            // With AlwaysSelected, overwriting the selected slot moves the selection to another
+            // model and changes the selected container's DataContext - exactly what this method
+            // exists to avoid. Single lets the selection sit still until the shuffle is done.
+            SelectionMode = SelectionMode.Single;
+
+            object? displaced = list[newIndex];
+
+            list[newIndex] = list[oldIndex];
+            sourceIndexes[newIndex] = oldIndex;
+            SelectedIndex = newIndex;
+
+            if (oldIndex < newIndex)
             {
-                if (container.LogicalIndex != list.IndexOf(item))
+                for (int i = oldIndex; i < newIndex - 1; ++i)
                 {
-                    list.Remove(item);
-                    list.Insert(container.LogicalIndex, item);
-
-                    SelectedItem = item;
-
-                    int i = 0;
-
-                    foreach (var dragTabItem in DragTabItems())
-                        dragTabItem.LogicalIndex = i++;
+                    sourceIndexes[i] = sourceIndexes[i + 1];
+                    list[i] = list[i + 1];
                 }
+
+                sourceIndexes[newIndex - 1] = newIndex;
+                list[newIndex - 1] = displaced;
+            }
+            else
+            {
+                for (int i = oldIndex; i > newIndex + 1; --i)
+                {
+                    sourceIndexes[i] = sourceIndexes[i - 1];
+                    list[i] = list[i - 1];
+                }
+
+                sourceIndexes[newIndex + 1] = newIndex;
+                list[newIndex + 1] = displaced;
+            }
+        }
+        finally
+        {
+            // Restore the selection before switching back, so AlwaysSelected finds something selected.
+            SelectedItem = item;
+            SelectionMode = selectionMode;
+            EndInit();
+            _isContainerSwapping = false;
+
+            int logicalIndex = 0;
+
+            foreach (var dragTabItem in DragTabItems())
+            {
+                int currentIndex = logicalIndex++;
+                dragTabItem.LogicalIndex = currentIndex;
+
+                ContainerIndexChangedOverride(dragTabItem, sourceIndexes[currentIndex], currentIndex);
             }
         }
     }
@@ -943,6 +1203,10 @@ public class TabsControl : TabControl
         if (_dragSessionPointer is null)
             return;
 
+        // ItemDragCompleted bails out for controller-driven sessions (the thumb handed its pointer
+        // off and never raises DragCompleted), so TabDragCompleted has to be raised from here.
+        DragTabItem? completedItem = _draggedItem;
+
         IPointer pointer = _dragSessionPointer;
         _dragSessionPointer = null;
 
@@ -983,6 +1247,12 @@ public class TabsControl : TabControl
         ResetDragSession();
 
         Dispatcher.UIThread.Post(() => _tabsPanel.InvalidateMeasure(), DispatcherPriority.Loaded);
+
+        if (completedItem is not null)
+        {
+            TabDragCompleted?.Invoke(this,
+                new DragTabDragCompletedEventArgs(completedItem, new VectorEventArgs(), releaseScreenPoint));
+        }
     }
 
 
@@ -1016,8 +1286,14 @@ public class TabsControl : TabControl
     }
 
 
-    private bool IsDetachedSingleTabHost() =>
-        _isDetachedHost && ItemsSource is IList items && items.Count == 1;
+    /// <summary>
+    /// True when this strip holds a single tab, so dragging that tab should move the whole
+    /// host window rather than tear the tab off. Tearing off would create a new window and
+    /// leave the old one empty, which achieves nothing. The tab can still be docked into
+    /// another strip: the drag path tries that first.
+    /// </summary>
+    private bool IsSingleTabHost() =>
+        ItemsSource is IList items && items.Count == 1;
 
 
     private bool MoveItemToAnotherTabsControl(object item, TabsControl target, Point dropScreenPoint,
@@ -1148,7 +1424,17 @@ public class TabsControl : TabControl
         if (sourceIndex < 0)
             return false;
 
-        detachedTabsControl = CreateDetachedTabsControl();
+        // Asked for first, and before the tab leaves this strip: a host factory that fails
+        // leaves the tab where it was rather than orphaning it.
+        if (DetachedHostFactory?.Invoke(this) is { } detachedHost)
+        {
+            detachedTabsControl = detachedHost.Host;
+            detachedWindow = detachedHost.Window;
+        }
+        else
+        {
+            detachedTabsControl = CreateDetachedTabsControl();
+        }
 
         if (detachedTabsControl.ItemsSource is not IList detachedItems)
             return false;
@@ -1160,8 +1446,8 @@ public class TabsControl : TabControl
         detachedItems.Add(item);
         detachedTabsControl.SelectedItem = item;
 
-        detachedWindow = DetachedWindowFactory?.Invoke(detachedTabsControl)
-                         ?? CreateDefaultDetachedWindow(detachedTabsControl);
+        detachedWindow ??= DetachedWindowFactory?.Invoke(detachedTabsControl)
+                           ?? CreateDefaultDetachedWindow(detachedTabsControl);
 
         detachedWindow.Position = new PixelPoint(
             x: (int)releaseScreenPoint.X - 120,
@@ -1198,13 +1484,12 @@ public class TabsControl : TabControl
             EnableTabAttaching = EnableTabAttaching,
             DetachTriggerDistance = DetachTriggerDistance,
             DetachedWindowFactory = DetachedWindowFactory,
+            DetachedHostFactory = DetachedHostFactory,
             ItemTemplate = ItemTemplate,
             ContentTemplate = ContentTemplate,
             ItemsSource = new ObservableCollection<object?>(),
             DataContext = DataContext
         };
-
-        detachedTabsControl._isDetachedHost = true;
 
 
         detachedTabsControl.LastTabClosedAction = LastTabClosedAction == _defaultLastTabClosedAction

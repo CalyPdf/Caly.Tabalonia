@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tabalonia.Controls;
+using Tabalonia.Panels;
 using Xunit;
 
 namespace Tabalonia.Tests;
@@ -19,13 +20,19 @@ public class TabScrollingTests : TabsWindowTest
     /// <summary>Matches TabsPanel.ScrollStep - one click of an overflow button.</summary>
     private const double ScrollStep = 80.0;
 
+    private const double LayoutRoundingTolerance = 1.0;
+
     private (Window Window, TabsControl Tabs, ObservableCollection<string> Items) CreateTabsWindow(
-        double width, int tabCount)
+        double width, int tabCount, double? rightThumbWidth = null)
     {
         var items = new ObservableCollection<string>(
             Enumerable.Range(0, tabCount).Select(i => $"Tab {i}"));
 
         var tabs = new TabsControl { ItemsSource = items };
+
+        if (rightThumbWidth is { } thumbWidth)
+            tabs.RightThumbWidth = thumbWidth;
+
         var window = ShowWindow(new Window { Width = width, Height = 300, Content = tabs });
 
         return (window, tabs, items);
@@ -188,6 +195,39 @@ public class TabScrollingTests : TabsWindowTest
         last = Container(tabs, items.Count - 1);
         Assert.True(last.X >= 0);
         Assert.True(last.X + last.Bounds.Width <= window.Width);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(TabsControl.WindowsDefaultRightThumbWidth)]
+    [InlineData(TabsControl.MacOsDefaultRightThumbWidth)]
+    public void A_Tab_Added_And_Selected_After_Layout_Is_Fully_Visible(double rightThumbWidth)
+    {
+        // Grows the strip from "fits" through "starts overflowing" to "long overflow". Every step
+        // adds a tab after the strip has already been laid out and selects it, the way opening a
+        // document does - the panel's scroll limits were measured for one tab fewer.
+        //
+        // The right thumb's default width depends on the OS, and it decides how wide the strip is
+        // (and whether that width is a whole number), so both defaults are pinned rather than
+        // left to whichever platform runs the test.
+        var (_, tabs, items) = CreateTabsWindow(width: 400, tabCount: 2, rightThumbWidth);
+        Assert.False(tabs.IsTabStripOverflowing, "the loop is meant to start from a strip that fits");
+
+        var panel = tabs.GetVisualDescendants().OfType<TabsPanel>().Single();
+
+        for (int i = items.Count; i < 20; i++)
+        {
+            items.Add($"Tab {i}");
+            tabs.SelectedIndex = items.Count - 1;
+            Dispatcher.UIThread.RunJobs();
+
+            var added = Container(tabs, items.Count - 1);
+
+            Assert.True(added.X >= -LayoutRoundingTolerance,
+                $"tab {i} starts left of the strip (X={added.X})");
+            Assert.True(added.X + added.Bounds.Width <= panel.Bounds.Width + LayoutRoundingTolerance,
+                $"tab {i} is cut off by the right edge of the strip " +
+                $"(right={added.X + added.Bounds.Width}, viewport={panel.Bounds.Width})");
+        }
     }
 
     [AvaloniaFact]

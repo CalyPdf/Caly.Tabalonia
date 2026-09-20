@@ -21,7 +21,11 @@ public class TabsPanel : Panel
     private bool _canScrollLeft;
     private bool _canScrollRight;
     private double _viewportWidth;
-    private int _pendingScrollToIndex = -1;
+
+    // The tab (normally the selected one) that ArrangeImpl keeps in view, for as long as the user
+    // has not scrolled the strip by hand.
+    private int _scrollTargetIndex = -1;
+    private bool _keepTargetInView;
 
     private const double ScrollStep = 80.0;
 
@@ -50,9 +54,9 @@ public class TabsPanel : Panel
 
     #region Public Methods
 
-    public void ScrollLeft() => SetScrollOffset(_scrollOffset - ScrollStep);
+    public void ScrollLeft() => ScrollByHand(-ScrollStep);
 
-    public void ScrollRight() => SetScrollOffset(_scrollOffset + ScrollStep);
+    public void ScrollRight() => ScrollByHand(ScrollStep);
 
     public void ScrollToTab(int logicalIndex)
     {
@@ -61,33 +65,9 @@ public class TabsPanel : Panel
             return;
         }
 
-        // Layout not yet happened: store and let ArrangeImpl apply it with fresh values.
-        if (_viewportWidth <= 0 || _itemWidth <= 0)
-        {
-            _pendingScrollToIndex = logicalIndex;
-            return;
-        }
-
-        double tabX = logicalIndex * (_itemWidth + ItemOffset);
-        double tabRight = tabX + _itemWidth;
-
-        // Tab is fully visible: do nothing, no layout pass, no events.
-        if (tabX >= _scrollOffset && tabRight <= _scrollOffset + _viewportWidth)
-        {
-            return;
-        }
-
-        // Tab is partially or not visible: scroll the minimum distance.
-        // Left of viewport → make it the first visible tab.
-        // Right of viewport → make it the last visible tab.
-        if (tabX < _scrollOffset)
-        {
-            SetScrollOffset(tabX);
-        }
-        else
-        {
-            SetScrollOffset(tabRight - _viewportWidth);
-        }
+        _scrollTargetIndex = logicalIndex;
+        _keepTargetInView = true;
+        InvalidateArrange();
     }
 
     #endregion
@@ -126,6 +106,13 @@ public class TabsPanel : Panel
         
     #endregion
     
+    private void ScrollByHand(double delta)
+    {
+        // The user chose where to look; stop pulling the strip back to the selected tab.
+        _keepTargetInView = false;
+        SetScrollOffset(_scrollOffset + delta);
+    }
+
     private void SetScrollOffset(double newOffset)
     {
         double clamped = Max(0, Min(newOffset, _maxScrollOffset));
@@ -234,10 +221,9 @@ public class TabsPanel : Panel
 
         _viewportWidth = finalSize.Width;
 
-        if (_pendingScrollToIndex >= 0)
+        if (_keepTargetInView && tabsCount > 0)
         {
-            int idx = _pendingScrollToIndex;
-            _pendingScrollToIndex = -1;
+            int idx = Min(_scrollTargetIndex, tabsCount - 1);
             double tabX = idx * (_itemWidth + ItemOffset);
             double tabRight = tabX + _itemWidth;
             if (tabX < _scrollOffset)

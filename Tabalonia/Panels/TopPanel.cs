@@ -106,7 +106,7 @@ public sealed class TopPanel : Panel
                                   + partsWidth.RightDragWindowThumb
                                   + partsWidth.RightContentControl;
         
-        double availableTabsWidth = finalSize.Width - withoutTabsWidth;
+        double availableTabsWidth = Math.Max(0, finalSize.Width - withoutTabsWidth);
 
         //|                                      finalSize.Width                                        |
         //
